@@ -3,8 +3,11 @@
 ## Version: r3
 ## Author: iCooky
 
-templates.xml
+# UI Templates
+src\templates.xml
 
-frame.xml
+# UI Frames
+src\frame.xml
 
-core.lua
+# Core Code
+src\main\core.lua
