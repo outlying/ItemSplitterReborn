@@ -1,0 +1,13 @@
+## Interface: 80100
+## Title: |cffBF5FFFCooky|r Item Splitter
+## Version: r3
+## Author: iCooky
+
+# UI Templates
+src\templates.xml
+
+# UI Frames
+src\frame.xml
+
+# Core Code
+src\main\core.lua
