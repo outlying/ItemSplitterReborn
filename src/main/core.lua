@@ -1,10 +1,32 @@
-local CIS = CreateFrame("Frame")
-lockedSlots = nil
-local baseContainer
-local maxContainer
-local containerType
+local addonName, addon = ...
 
-local MaxBuffer = 5
+-- WoW Functions
+local GetContainerNumSlots, GetContainerNumFreeSlots = GetContainerNumSlots, GetContainerNumFreeSlots
+local ContainerIDToInventoryID = ContainerIDToInventoryID
+local GetContainerItemLink, GetContainerItemInfo, GetItemFamily, GetInventoryItemLink = GetContainerItemLink, GetContainerItemInfo, GetItemFamily, GetInventoryItemLink
+local GetCurrentGuildBankTab, GetGuildBankItemInfo, GetCurrentGuildBankTab = GetCurrentGuildBankTab, GetGuildBankItemInfo, GetCurrentGuildBankTab
+local BuyMerchantItem = BuyMerchantItem
+local GetBindingFromClick = GetBindingFromClick
+local SplitContainerItem, PickupContainerItem = SplitContainerItem, PickupContainerItem
+local SplitGuildBankItem, PickupGuildBankItem = SplitGuildBankItem, PickupGuildBankItem
+
+-- Lua Functions
+local select, IsShiftKeyDown, gsub, floor, next = select, IsShiftKeyDown, gsub, floor, next
+
+-- Addon Frames
+local frames = addon.frames
+local ParentFrame, ValueText = frames.ParentFrame, frames.ValueText
+local LeftArrowButton, RightArrowButton = frames.LeftArrowButton, frames.RightArrowButton
+local SplitOnceButton, SplitAllButton, GuildBankSplitButton = frames.SplitOnceButton, frames.SplitAllButton, frames.GuildBankSplitButton
+local BuyOnceButton, BuyStacksButton = frames.BuyOnceButton, frames.BuyStacksButton
+local CIS = CreateFrame("Frame")
+
+-- Constants
+local MAX_BUFFER_SIZE = 5
+
+-- Local Variables
+local lockedSlots = nil
+local baseContainer, maxContainer, containerType
 
 -----------------
 -- Util Functions
@@ -41,17 +63,14 @@ local function IsBag(bag)
     local inventoryID = ContainerIDToInventoryID(bag)
     local bagLink = GetInventoryItemLink("player", inventoryID)
 
-    if bagLink then
-        return bagLink
-    else
-        return false
-    end
+    return bagLink and bagLink or false
 end
 
 local function GetNumFreeBagSlots(self)
     local freeSlots = 0
 
-    if self.container == BANK_CONTAINER or (self.container >= NUM_BAG_SLOTS + 1 and self.container <= NUM_BAG_SLOTS + NUM_BANKBAGSLOTS) then -- Bank
+    if self.container == BANK_CONTAINER or (self.container >= NUM_BAG_SLOTS + 1 and self.container <= NUM_BAG_SLOTS + NUM_BANKBAGSLOTS) then
+        -- Bank
         freeSlots = GetContainerNumFreeSlots(BANK_CONTAINER)
 
         for bag = BANK_CONTAINER, NUM_BAG_SLOTS + NUM_BANKBAGSLOTS do
@@ -61,9 +80,11 @@ local function GetNumFreeBagSlots(self)
 
             freeSlots = freeSlots + GetContainerNumFreeSlots(bag)
         end
-    elseif self.container == REAGENTBANK_CONTAINER then -- Reagent Bank
+    elseif self.container == REAGENTBANK_CONTAINER then
+        -- Reagent Bank
         freeSlots = GetContainerNumFreeSlots(REAGENTBANK_CONTAINER)
-    elseif self.container >= BACKPACK_CONTAINER and self.container <= NUM_BAG_SLOTS then -- Bags
+    elseif self.container >= BACKPACK_CONTAINER and self.container <= NUM_BAG_SLOTS then
+        -- Bags
         freeSlots = GetContainerNumFreeSlots(BACKPACK_CONTAINER)
         local containerBagType = BACKPACK_CONTAINER
         local itemFamily = GetItemFamily(self.link)
@@ -155,20 +176,20 @@ local function CalculateSplit(self)
     self.leftover = leftover or 0
 end
 
-local function VendorWindow()
-    CIS_ParentFrame.buyOnce:Show()
-    CIS_ParentFrame.buyStacks:Show()
+local function ShowVendorWindow()
+    SplitOnceButton:Hide()
+    SplitAllButton:Hide()
 
-    CIS_ParentFrame.splitOnce:Hide()
-    CIS_ParentFrame.splitAll:Hide()
+    BuyOnceButton:Show()
+    BuyStacksButton:Show()
 end
 
-local function NonVendorWindow()
-    CIS_ParentFrame.splitOnce:Show()
-    CIS_ParentFrame.splitAll:Show()
+local function ShowNonVendorWindow()
+    SplitOnceButton:Show()
+    SplitAllButton:Show()
 
-    CIS_ParentFrame.buyOnce:Hide()
-    CIS_ParentFrame.buyStacks:Hide()
+    BuyOnceButton:Hide()
+    BuyStacksButton:Hide()
 end
 
 local function UpdateBuyStacksText(self, amount)
@@ -181,51 +202,60 @@ local function UpdateBuyStacksText(self, amount)
     end
 
     if amount == 1 then
-        self.buyStacks.text:SetText("Buy " .. amount .. " Stack")
+        BuyStacksButton.text:SetText("Buy " .. amount .. " Stack")
     else
-        self.buyStacks.text:SetText("Buy " .. amount .. " Stacks")
+        BuyStacksButton.text:SetText("Buy " .. amount .. " Stacks")
     end
 end
 
-local function UpdateText(self, amount)
-    self.text:SetText(amount)
+local function UpdateBuyOnceButton(self, amount)
+    BuyOnceButton.text:SetText("Buy " .. amount)
+end
+
+local function UpdateValueText(self, amount)
+    ValueText:SetText(amount)
+    UpdateBuyOnceButton(self, amount)
     UpdateBuyStacksText(self, amount)
 end
 
 --------------------------
 local function OpenFrame(self, maxStack, parent, anchor, anchorTo, stackCount)
-    if CIS_ParentFrame.parent then
-        CIS_ParentFrame.parent.hasStackSplit = 0
+    local isWindowVendorWindow
+
+    if ParentFrame.parent then
+        ParentFrame.parent.hasStackSplit = 0
     end
 
     if not maxStack or maxStack < 1 then
-        CIS_ParentFrame:Hide()
+        ParentFrame:Hide()
+
         return
     end
 
-    CIS_ParentFrame.maxStack = maxStack
-    CIS_ParentFrame.parent = parent
-    CIS_ParentFrame.container = parent:GetParent():GetID()
-    CIS_ParentFrame.slot = parent:GetID()
+    ParentFrame.maxStack = maxStack
+    ParentFrame.parent = parent
+    ParentFrame.container = parent:GetParent():GetID()
+    ParentFrame.slot = parent:GetID()
     parent.hasStackSplit = 1
-    CIS_ParentFrame.minSplit = 1
-    CIS_ParentFrame.split = CIS_ParentFrame.minSplit
-    CIS_ParentFrame.totalSplit = CIS_ParentFrame.split
+    ParentFrame.minSplit = 1
+    ParentFrame.split = ParentFrame.minSplit
+    ParentFrame.totalSplit = ParentFrame.split
+    UpdateValueText(ParentFrame, ParentFrame.minSplit)
+    ParentFrame.typing = 0
+    ParentFrame.guildSplit = false
+    ParentFrame.fromBags = false
+
+    ParentFrame:ClearAllPoints()
+    ParentFrame:SetPoint(anchor, parent, anchorTo, 0, 0)
+    ParentFrame:Show()
+
     -- If there's a price, we're in a vendor window, handle vendor behavior. If there's no price, we're not in a vendor window
-    CIS_ParentFrame.price = parent.price
-    UpdateText(CIS_ParentFrame, CIS_ParentFrame.minSplit)
-    CIS_ParentFrame.typing = 0
-    CIS_ParentFrame.guildSplit = false
-    CIS_ParentFrame.fromBags = false
+    isWindowVendorWindow = parent.price ~= nil
 
-    CIS_ParentFrame:ClearAllPoints()
-    CIS_ParentFrame:SetPoint(anchor, parent, anchorTo, 0, 0)
-    CIS_ParentFrame:Show()
-
-    if CIS_ParentFrame.price then
-        VendorWindow()
+    if isWindowVendorWindow then
+        ShowVendorWindow()
     else
-        NonVendorWindow()
+        ShowNonVendorWindow()
     end
 end
 
@@ -260,7 +290,7 @@ local function OnChar(self, text)
 
     if split <= self.maxStack then
         self.split = split
-        UpdateText(self, split)
+        UpdateValueText(self, split)
     elseif split == 0 then
         self.split = 1
     end
@@ -276,7 +306,6 @@ end
 
 local function AutoSplit(self)
     if (self.leftover == 0 and self.splitStacks == self.numStacks - 1) or self.splitStacks == self.numStacks then
-        -- print(self.leftover.." _ "..self.numStacks)
         CIS:UnregisterEvent("ITEM_LOCK_CHANGED")
         return
     end
@@ -299,22 +328,27 @@ local function SplitAll(self)
     if self.parent then
         CIS:RegisterEvent("ITEM_LOCK_CHANGED")
 
-        if self.container == BANK_CONTAINER or (self.container >= NUM_BAG_SLOTS + 1 and self.container <= NUM_BAG_SLOTS + NUM_BANKBAGSLOTS) then -- Bank
+        if self.container == BANK_CONTAINER or (self.container >= NUM_BAG_SLOTS + 1 and self.container <= NUM_BAG_SLOTS + NUM_BANKBAGSLOTS) then
+            -- Bank
             baseContainer = BANK_CONTAINER
             maxContainer = NUM_BAG_SLOTS + NUM_BANKBAGSLOTS
             containerType = BANK_CONTAINER
-        elseif self.container == REAGENTBANK_CONTAINER then -- Reagent Bank
+        elseif self.container == REAGENTBANK_CONTAINER then
+            -- Reagent Bank
             baseContainer = REAGENTBANK_CONTAINER
             maxContainer = REAGENTBANK_CONTAINER
             containerType = REAGENTBANK_CONTAINER
-        elseif self.container >= BACKPACK_CONTAINER and self.container <= NUM_BAG_SLOTS then -- Bags
+        elseif self.container >= BACKPACK_CONTAINER and self.container <= NUM_BAG_SLOTS then
+            -- Bags
             baseContainer = BACKPACK_CONTAINER
             maxContainer = NUM_BAG_SLOTS
             containerType = BACKPACK_CONTAINER
         end
 
         CalculateSplit(self)
+
         self.splitStacks = 0
+
         ClearAllLockedSlots()
         AutoSplit(self)
     end
@@ -323,7 +357,6 @@ end
 local function GuildBankAutoSplit(self)
     if self.fromBags then
         if self.splitStacks == self.numStacks then
-            -- print("exit 1")
             CIS:UnregisterEvent("GUILDBANK_ITEM_LOCK_CHANGED")
             CIS:UnregisterEvent("ITEM_LOCK_CHANGED")
             return
@@ -394,7 +427,7 @@ end
 
 local function AutoBuyStacks(self, numRuns, remainder)
     self:Hide()
-    local limit = MaxBuffer
+    local limit = MAX_BUFFER_SIZE
 
     if self.parent then
         local count = 0
@@ -403,7 +436,7 @@ local function AutoBuyStacks(self, numRuns, remainder)
         -- To prevent "Internal Item Errors"
         -- Only buy "limit" stacks at a time
         if numRuns == 0 then
-            if remainder < MaxBuffer then
+            if remainder < MAX_BUFFER_SIZE then
                 limit = remainder
             end
         end
@@ -415,7 +448,9 @@ local function AutoBuyStacks(self, numRuns, remainder)
         -- Continuation of preventing Internal Item errors:
         -- after buying "limit" stacks, wait 1 second then attempt to buy "limit" more
         if numRuns > 0 then
-            C_Timer.After(1, function() AutoBuyStacks(self, numRuns - 1, remainder) end)
+            C_Timer.After(1, function()
+                AutoBuyStacks(self, numRuns - 1, remainder)
+            end)
         end
     end
 end
@@ -430,7 +465,9 @@ local function CheckItemLock(self)
         end
 
         if not locked then
-            C_Timer.After(1, function() GuildBankAutoSplit(self) end) -- Needs timer or else causes C Stack overflow of blizzard trying to set color of locked items if ran too fast
+            C_Timer.After(1, function()
+                GuildBankAutoSplit(self)
+            end) -- Needs timer or else causes C Stack overflow of blizzard trying to set color of locked items if ran too fast
         end
     else
         locked = select(3, GetContainerItemInfo(self.container, self.slot))
@@ -449,7 +486,7 @@ local function LeftClick(self)
     self.split = IsShiftKeyDown() and self.minSplit or self.split - self.minSplit
 
     if self.split <= self.maxStack then
-        UpdateText(self, self.split)
+        UpdateValueText(self, self.split)
     else
         UpdateBuyStacksText(self, self.split)
     end
@@ -461,12 +498,12 @@ local function RightClick(self)
 
         if self.split < self.maxStack then
             self.split = IsShiftKeyDown() and self.maxStack or self.split + self.minSplit
-            UpdateText(self, self.split)
-        else
-            local freeSlots = GetNumFreeBagSlots(self)
 
+            UpdateValueText(self, self.split)
+        else
             if self.split < freeSlots then
                 self.split = self.split + self.minSplit
+
                 UpdateBuyStacksText(self, self.split)
             end
         end
@@ -477,7 +514,7 @@ local function RightClick(self)
 
         self.split = IsShiftKeyDown() and self.maxStack or self.split + self.minSplit
 
-        UpdateText(self, self.split)
+        UpdateValueText(self, self.split)
     end
 end
 
@@ -495,7 +532,7 @@ local function OnKeyDown(self, key)
             self.typing = 0
         end
 
-        UpdateText(self, self.split)
+        UpdateValueText(self, self.split)
     elseif key == "ENTER" then
         SplitOnce(self)
     elseif GetBindingFromClick(key) == "TOGGLEGAMEMENU" then
@@ -527,31 +564,44 @@ end
 local function OnEvent(self, event, ...)
     if event == "PLAYER_LOGIN" then
         StackSplitFrame.OpenStackSplitFrame = OpenFrame
-        -- print(OpenStackSplitFrame)
 
-        CIS_ParentFrame:SetScript("OnHide", OnHide)
-        CIS_ParentFrame:SetScript("OnChar", OnChar)
-        CIS_ParentFrame:SetScript("OnKeyDown", OnKeyDown)
-        CIS_ParentFrame:SetScript("OnKeyUp", OnKeyUp)
-        CIS_ParentFrame:SetScript("OnMouseWheel", OnMouseWheel)
+        ParentFrame:SetScript("OnHide", OnHide)
+        ParentFrame:SetScript("OnChar", OnChar)
+        ParentFrame:SetScript("OnKeyDown", OnKeyDown)
+        ParentFrame:SetScript("OnKeyUp", OnKeyUp)
+        ParentFrame:SetScript("OnMouseWheel", OnMouseWheel)
 
-        CIS_ParentFrame.leftButton:HookScript("OnClick", function() LeftClick(CIS_ParentFrame) end)
-        CIS_ParentFrame.rightButton:HookScript("OnClick", function() RightClick(CIS_ParentFrame) end)
+        LeftArrowButton:HookScript("OnClick", function()
+            LeftClick(ParentFrame)
+        end)
+        RightArrowButton:HookScript("OnClick", function()
+            RightClick(ParentFrame)
+        end)
 
-        CIS_ParentFrame.splitOnce:HookScript("OnClick", function() SplitOnce(CIS_ParentFrame) end)
-        CIS_ParentFrame.splitAll:HookScript("OnClick", function() SplitAll(CIS_ParentFrame) end)
-        CIS_ParentFrame.guildBankSplit:HookScript("OnClick", function() GuildBankSplit(CIS_ParentFrame) end)
-        CIS_ParentFrame.buyOnce:HookScript("OnClick", function() BuyOnce(CIS_ParentFrame) end)
-        CIS_ParentFrame.buyStacks:HookScript("OnClick", function() AutoBuyStacks(CIS_ParentFrame, floor(CIS_ParentFrame.split / MaxBuffer), CIS_ParentFrame.split % MaxBuffer) end)
+        SplitOnceButton:HookScript("OnClick", function()
+            SplitOnce(ParentFrame)
+        end)
+        SplitAllButton:HookScript("OnClick", function()
+            SplitAll(ParentFrame)
+        end)
+        GuildBankSplitButton:HookScript("OnClick", function()
+            GuildBankSplit(ParentFrame)
+        end)
+        BuyOnceButton:HookScript("OnClick", function()
+            BuyOnce(ParentFrame)
+        end)
+        BuyStacksButton:HookScript("OnClick", function()
+            AutoBuyStacks(ParentFrame, floor(ParentFrame.split / MAX_BUFFER_SIZE), ParentFrame.split % MAX_BUFFER_SIZE)
+        end)
     elseif event == "ITEM_LOCK_CHANGED" then
-        CheckItemLock(CIS_ParentFrame)
+        CheckItemLock(ParentFrame)
     elseif event == "GUILDBANK_ITEM_LOCK_CHANGED" then
-        CheckItemLock(CIS_ParentFrame)
+        CheckItemLock(ParentFrame)
     elseif event == "GUILDBANKFRAME_OPENED" then
-        CIS_ParentFrame.guildBankSplit:Show()
+        GuildBankSplitButton:Show()
     elseif event == "GUILDBANKFRAME_CLOSED" then
-        CIS_ParentFrame.guildBankSplit:Hide()
-        CIS_ParentFrame:Hide()
+        GuildBankSplitButton:Hide()
+        ParentFrame:Hide()
     end
 end
 
