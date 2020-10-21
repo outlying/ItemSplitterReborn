@@ -1,13 +1,11 @@
-## Interface: 80100
+## Interface: 90001
 ## Title: |cffBF5FFFCooky|r Item Splitter
-## Version: r3
-## Author: iCooky
+## Version: r4-alpha
+## Author: Cooky
 
 # UI Templates
 src\templates.xml
 
-# UI Frames
-src\frame.xml
-
 # Core Code
+src\main\frames.lua
 src\main\core.lua
