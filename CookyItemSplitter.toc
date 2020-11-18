@@ -1,6 +1,6 @@
-## Interface: 90001
+## Interface: 90002
 ## Title: |cffBF5FFFCooky|r Item Splitter
-## Version: r4-alpha
+## Version: 9.2
 ## Author: Cooky
 
 # UI Templates

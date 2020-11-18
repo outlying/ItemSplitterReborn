@@ -108,7 +108,7 @@ local function createCloseButton()
     end)
 
     closeButton.text:ClearAllPoints();
-    closeButton.text:SetPoint("CENTER", 1, 0)
+    closeButton.text:SetPoint("CENTER", 0, 0)
     closeButton.text:SetText("X")
 end
 
