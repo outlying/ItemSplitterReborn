@@ -1,0 +1,11 @@
+## Interface: 110000
+## Title: Item Splitter Reborn
+## Version: 11.0.0
+## Author: outlying, Cooky
+
+# UI Templates
+src\templates.xml
+
+# Core Code
+src\main\frames.lua
+src\main\core.lua
