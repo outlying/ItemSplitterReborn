@@ -47,7 +47,7 @@ local function createValueText()
 
     local valueText = parentFrame:CreateFontString(nil, "ARTWORK", "CIS_TextTemplate")
     valueText:SetJustifyH("CENTER")
-    valueText:SetJustifyV("CENTER")
+    valueText:SetJustifyV("MIDDLE")
     valueText:ClearAllPoints();
     valueText:SetPoint("TOP", parentFrame, "TOP", 0, -35)
 
@@ -218,22 +218,21 @@ local function createBuyStacksButton()
     frames.BuyStacksButton = buyStacksButton
 end
 
-do
-    createParentFrame()
-    createValueText()
-    createTitleBar()
-    createCloseButton()
+createParentFrame()
+createValueText()
+createTitleBar()
+createCloseButton()
 
-    createLeftArrowButton()
-    createRightArrowButton()
+createLeftArrowButton()
+createRightArrowButton()
 
-    createSplitOnceButton()
-    createSplitAllButton()
+createSplitOnceButton()
+createSplitAllButton()
 
-    createGuildBankSplitButton()
+createGuildBankSplitButton()
 
-    createBuyOnceButton()
-    createBuyStacksButton()
+createBuyOnceButton()
+createBuyStacksButton()
 
-    addon.frames = frames
-end
+addon.frames = frames
+
