@@ -1,7 +1,7 @@
 ## Interface: 110000
 ## Title: Item Splitter Reborn
 ## Version: 11.0.0
-## Author: outlying, Cooky
+## Author: outlying, Ohio, nukmii, Cooky
 
 # UI Templates
 src\templates.xml

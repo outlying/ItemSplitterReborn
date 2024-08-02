@@ -1,14 +1,23 @@
 local addonName, addon = ...
 
 -- WoW Functions
-local GetContainerNumSlots, GetContainerNumFreeSlots = GetContainerNumSlots, GetContainerNumFreeSlots
-local ContainerIDToInventoryID = ContainerIDToInventoryID
-local GetContainerItemLink, GetContainerItemInfo, GetItemFamily, GetInventoryItemLink = GetContainerItemLink, GetContainerItemInfo, GetItemFamily, GetInventoryItemLink
-local GetCurrentGuildBankTab, GetGuildBankItemInfo, GetCurrentGuildBankTab = GetCurrentGuildBankTab, GetGuildBankItemInfo, GetCurrentGuildBankTab
+local ContainerIDToInventoryID = C_Container and C_Container.ContainerIDToInventoryID or ContainerIDToInventoryID
+local GetContainerNumFreeSlots = C_Container and C_Container.GetContainerNumFreeSlots or GetContainerNumFreeSlots
+local GetContainerNumSlots = C_Container and C_Container.GetContainerNumSlots or GetContainerNumSlots
+local GetContainerItemID = C_Container and C_Container.GetContainerItemID or GetContainerItemID
+local GetContainerItemInfo = C_Container and C_Container.GetContainerItemInfo or GetContainerItemInfo
+local PickupContainerItem = C_Container and C_Container.PickupContainerItem or PickupContainerItem
+local PickupGuildBankItem = PickupGuildBankItem
+local SplitContainerItem = C_Container and C_Container.SplitContainerItem or SplitContainerItem
+local SplitGuildBankItem = SplitGuildBankItem
+local GetContainerItemLink = C_Container and C_Container.GetContainerItemLink or GetContainerItemLink
+local GetItemFamily = C_Item and C_Item.GetItemFamily or GetItemFamily
+local GetInventoryItemLink = GetInventoryItemLink
+local GetCurrentGuildBankTab = GetCurrentGuildBankTab
+local GetGuildBankItemInfo = GetGuildBankItemInfo
 local BuyMerchantItem = BuyMerchantItem
 local GetBindingFromClick = GetBindingFromClick
-local SplitContainerItem, PickupContainerItem = SplitContainerItem, PickupContainerItem
-local SplitGuildBankItem, PickupGuildBankItem = SplitGuildBankItem, PickupGuildBankItem
+local MAX_GUILDBANK_SLOTS_PER_TAB = 98
 
 -- Lua Functions
 local select, IsShiftKeyDown, gsub, floor, next = select, IsShiftKeyDown, gsub, floor, next
@@ -17,7 +26,8 @@ local select, IsShiftKeyDown, gsub, floor, next = select, IsShiftKeyDown, gsub, 
 local frames = addon.frames
 local ParentFrame, ValueText = frames.ParentFrame, frames.ValueText
 local LeftArrowButton, RightArrowButton = frames.LeftArrowButton, frames.RightArrowButton
-local SplitOnceButton, SplitAllButton, GuildBankSplitButton = frames.SplitOnceButton, frames.SplitAllButton, frames.GuildBankSplitButton
+local SplitOnceButton, SplitAllButton, GuildBankSplitButton = frames.SplitOnceButton, frames.SplitAllButton,
+    frames.GuildBankSplitButton
 local BuyOnceButton, BuyStacksButton = frames.BuyOnceButton, frames.BuyStacksButton
 local CIS = CreateFrame("Frame")
 
@@ -69,7 +79,8 @@ end
 local function GetNumFreeBagSlots(self)
     local freeSlots = 0
 
-    if self.container == BANK_CONTAINER or (self.container >= NUM_BAG_SLOTS + 1 and self.container <= NUM_BAG_SLOTS + NUM_BANKBAGSLOTS) then
+    if self.container == BANK_CONTAINER or
+        (self.container >= NUM_BAG_SLOTS + 1 and self.container <= NUM_BAG_SLOTS + NUM_BANKBAGSLOTS) then
         -- Bank
         freeSlots = GetContainerNumFreeSlots(BANK_CONTAINER)
 
@@ -87,7 +98,7 @@ local function GetNumFreeBagSlots(self)
         -- Bags
         freeSlots = GetContainerNumFreeSlots(BACKPACK_CONTAINER)
         local containerBagType = BACKPACK_CONTAINER
-        local itemFamily = GetItemFamily(self.link)
+        --local itemFamily = GetItemFamily(self.link)
 
         for bag = 1, NUM_BAG_SLOTS do
             local bagLink = IsBag(bag)
@@ -95,7 +106,7 @@ local function GetNumFreeBagSlots(self)
             if bagLink then
                 containerBagType = GetItemFamily(bagLink)
 
-                if containerBagType == BACKPACK_CONTAINER or containerBagType == itemFamily then
+                if containerBagType == BACKPACK_CONTAINER then--or containerBagType == itemFamily then
                     freeSlots = freeSlots + GetContainerNumFreeSlots(bag)
                 end
             end
@@ -108,13 +119,14 @@ end
 local function GetNextFreeSlot(self)
     if self.guildSplit then
         for slot = 1, MAX_GUILDBANK_SLOTS_PER_TAB do
-            if not IsSlotLocked(GetCurrentGuildBankTab(), slot) and not GetGuildBankItemInfo(GetCurrentGuildBankTab(), slot) then
+            if not IsSlotLocked(GetCurrentGuildBankTab(), slot) and
+                not GetGuildBankItemInfo(GetCurrentGuildBankTab(), slot) then
                 return slot
             end
         end
     else
         local containerBagType
-        local itemFamily = GetItemFamily(self.link)
+        --local itemFamily = GetItemFamily(self.link)
         local goodBag = true
 
         for bag = baseContainer, maxContainer do
@@ -128,7 +140,7 @@ local function GetNextFreeSlot(self)
                 if bagLink then
                     containerBagType = GetItemFamily(bagLink)
 
-                    if containerBagType == baseContainer or containerBagType == itemFamily then
+                    if containerBagType == baseContainer then--or containerBagType == itemFamily then
                         goodBag = true
                     else
                         goodBag = false
@@ -234,8 +246,29 @@ local function OpenFrame(self, maxStack, parent, anchor, anchorTo, stackCount)
 
     ParentFrame.maxStack = maxStack
     ParentFrame.parent = parent
-    ParentFrame.container = parent:GetParent():GetID()
-    ParentFrame.slot = parent:GetID()
+
+
+    -- fix for combined bag of bliz bags@ Nukme 20221125
+    if parent:GetParent():GetName() == "ContainerFrameCombinedBags" then
+        local owner_name = parent:GetName()
+        local numbers = {}
+        for num in string.gmatch(owner_name, "%d+") do
+            numbers[#numbers + 1] = num
+        end
+
+        ParentFrame.container = numbers[1] - 1
+        local total_slots = GetContainerNumSlots(ParentFrame.container)
+        ParentFrame.slot = total_slots - numbers[2] + 1
+
+    else
+        ParentFrame.container = parent:GetParent():GetID()
+        ParentFrame.slot = parent:GetID()
+    end
+
+
+
+
+
     parent.hasStackSplit = 1
     ParentFrame.minSplit = 1
     ParentFrame.split = ParentFrame.minSplit
@@ -328,7 +361,8 @@ local function SplitAll(self)
     if self.parent then
         CIS:RegisterEvent("ITEM_LOCK_CHANGED")
 
-        if self.container == BANK_CONTAINER or (self.container >= NUM_BAG_SLOTS + 1 and self.container <= NUM_BAG_SLOTS + NUM_BANKBAGSLOTS) then
+        if self.container == BANK_CONTAINER or
+            (self.container >= NUM_BAG_SLOTS + 1 and self.container <= NUM_BAG_SLOTS + NUM_BANKBAGSLOTS) then
             -- Bank
             baseContainer = BANK_CONTAINER
             maxContainer = NUM_BAG_SLOTS + NUM_BANKBAGSLOTS
@@ -459,7 +493,8 @@ local function CheckItemLock(self)
     local locked
     if self.guildSplit then
         if self.fromBags then
-            locked = select(3, GetContainerItemInfo(self.container, self.slot))
+            local info = GetContainerItemInfo(self.container, self.slot)
+            locked = info.isLocked
         else
             locked = select(3, GetGuildBankItemInfo(GetCurrentGuildBankTab(), self.slot))
         end
@@ -470,7 +505,8 @@ local function CheckItemLock(self)
             end) -- Needs timer or else causes C Stack overflow of blizzard trying to set color of locked items if ran too fast
         end
     else
-        locked = select(3, GetContainerItemInfo(self.container, self.slot))
+        local info = GetContainerItemInfo(self.container, self.slot)
+        locked = info.isLocked
 
         if not locked then
             AutoSplit(self)
@@ -562,6 +598,7 @@ local function OnKeyUp(self, key)
 end
 
 local function OnEvent(self, event, ...)
+
     if event == "PLAYER_LOGIN" then
         StackSplitFrame.OpenStackSplitFrame = OpenFrame
 
@@ -597,15 +634,21 @@ local function OnEvent(self, event, ...)
         CheckItemLock(ParentFrame)
     elseif event == "GUILDBANK_ITEM_LOCK_CHANGED" then
         CheckItemLock(ParentFrame)
-    elseif event == "GUILDBANKFRAME_OPENED" then
-        GuildBankSplitButton:Show()
-    elseif event == "GUILDBANKFRAME_CLOSED" then
-        GuildBankSplitButton:Hide()
-        ParentFrame:Hide()
+    elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" then
+        local type = ...
+        if type == 10 then
+            GuildBankSplitButton:Show()
+        end
+    elseif event == "PLAYER_INTERACTION_MANAGER_FRAME_HIDE" then
+        local type = ...
+        if type == 10 then
+            GuildBankSplitButton:Hide()
+            ParentFrame:Hide()
+        end
     end
 end
 
 CIS:RegisterEvent("PLAYER_LOGIN")
-CIS:RegisterEvent("GUILDBANKFRAME_OPENED")
-CIS:RegisterEvent("GUILDBANKFRAME_CLOSED")
+CIS:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE");
+CIS:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW");
 CIS:HookScript("OnEvent", OnEvent)
