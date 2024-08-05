@@ -263,6 +263,7 @@ local function OpenFrame(self, maxStack, parent, anchor, anchorTo, stackCount)
 
         print("|cffFF0000Item Splitter Reborn doesn't support Blizzard combined bags|r please use separate bags or bags addon ")
 
+        -- This is fallback to in game item splitting dialog
         ParentFrame.originalSplitFunction(StackSplitFrame, maxStack, parent, anchor, anchorTo, stackCount)
         return
 

@@ -2,6 +2,7 @@
 ## Title: Item Splitter Reborn
 ## Version: 11.0.0
 ## Author: outlying, Ohio, nukmii, Cooky
+## IconTexture: Interface\Icons\misc_torgast_theboxofmanythings
 
 # UI Templates
 src\templates.xml
