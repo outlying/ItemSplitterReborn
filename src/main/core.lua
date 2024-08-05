@@ -247,7 +247,6 @@ local function OpenFrame(self, maxStack, parent, anchor, anchorTo, stackCount)
     ParentFrame.maxStack = maxStack
     ParentFrame.parent = parent
 
-
     -- fix for combined bag of bliz bags@ Nukme 20221125
     if parent:GetParent():GetName() == "ContainerFrameCombinedBags" then
         local owner_name = parent:GetName()
@@ -264,10 +263,6 @@ local function OpenFrame(self, maxStack, parent, anchor, anchorTo, stackCount)
         ParentFrame.container = parent:GetParent():GetID()
         ParentFrame.slot = parent:GetID()
     end
-
-
-
-
 
     parent.hasStackSplit = 1
     ParentFrame.minSplit = 1
