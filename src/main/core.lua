@@ -244,25 +244,35 @@ local function OpenFrame(self, maxStack, parent, anchor, anchorTo, stackCount)
         return
     end
 
-    ParentFrame.maxStack = maxStack
-    ParentFrame.parent = parent
-
     -- fix for combined bag of bliz bags@ Nukme 20221125
     if parent:GetParent():GetName() == "ContainerFrameCombinedBags" then
-        local owner_name = parent:GetName()
-        local numbers = {}
-        for num in string.gmatch(owner_name, "%d+") do
-            numbers[#numbers + 1] = num
-        end
 
-        ParentFrame.container = numbers[1] - 1
-        local total_slots = GetContainerNumSlots(ParentFrame.container)
-        ParentFrame.slot = total_slots - numbers[2] + 1
+        -- Note: It seems that pre 11.x.x it was possible to get associated bag/slot via parsing
+        -- slot frame name, which container 2 numbers (bag index, slot index). Unluckily in 11.x.x
+        -- this name is now null and it is not possible to get reference this way
+
+        -- local owner_name = parent:GetName()
+        -- local numbers = {}
+        -- for num in string.gmatch(owner_name, "%d+") do
+        --     numbers[#numbers + 1] = num
+        -- end
+        -- 
+        -- ParentFrame.container = numbers[1] - 1
+        -- local total_slots = GetContainerNumSlots(ParentFrame.container)
+        -- ParentFrame.slot = total_slots - numbers[2] + 1
+
+        print("|cffFF0000Item Splitter Reborn doesn't support Blizzard combined bags|r please use separate bags or bags addon ")
+
+        ParentFrame.originalSplitFunction(StackSplitFrame, maxStack, parent, anchor, anchorTo, stackCount)
+        return
 
     else
         ParentFrame.container = parent:GetParent():GetID()
         ParentFrame.slot = parent:GetID()
     end
+
+    ParentFrame.maxStack = maxStack
+    ParentFrame.parent = parent
 
     parent.hasStackSplit = 1
     ParentFrame.minSplit = 1
@@ -595,6 +605,7 @@ end
 local function OnEvent(self, event, ...)
 
     if event == "PLAYER_LOGIN" then
+        ParentFrame.originalSplitFunction = StackSplitFrame.OpenStackSplitFrame
         StackSplitFrame.OpenStackSplitFrame = OpenFrame
 
         ParentFrame:SetScript("OnHide", OnHide)
