@@ -69,7 +69,7 @@ local function createTitleBar()
     titleText:ClearAllPoints()
     titleText:SetPoint("CENTER")
     titleText:SetJustifyH("CENTER")
-    titleText:SetText("|cffBF5FFFCooky|r Item Splitter")
+    titleText:SetText("Item Splitter Reborn")
 
     frames.TitleBar = titleBar
 end
